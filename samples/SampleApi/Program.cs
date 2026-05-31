@@ -38,7 +38,7 @@ app.MapGet("/orders", async (AppDbContext db) =>
 });
 app.MapDelete("/orders/{id}", async (AppDbContext db , int id) =>
 {
-  var order = await db.Orders.FindAsync(id);
+  var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == id);
   if (order == null) return Results.NotFound();
   db.Orders.Remove(order);
   await db.SaveChangesAsync();

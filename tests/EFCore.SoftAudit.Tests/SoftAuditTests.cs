@@ -16,16 +16,11 @@ public class SoftAuditTests
     [Fact]
     public async Task Add_ShouldFillCreatedAt()
     {
-        // Arrange
-        using var db = CreateDb();
-        var order = new TestOrder { Name = "Test" };
-
-        // Act
-        db.Orders.Add(order);
-        await db.SaveChangesAsync();
-
-        // Assert
-        order.CreatedAt.Should().NotBe(default);
+       await using var db = CreateDb();
+       var order = new TestOrder { Name = "Test" };
+       db.Orders.Add(order);
+       await db.SaveChangesAsync();
+       order.CreatedAt.Should().NotBe(default);
     }
 
     [Fact]
@@ -64,5 +59,80 @@ public class SoftAuditTests
         order2.Name = "Test2";
         await db.SaveChangesAsync();
         order2.UpdatedAt.Should().NotBe(default);
+    }
+
+    [Fact]
+    public async Task Delete_ShouldNotFillUpdatedAt()
+    {
+        await using var db = CreateDb();
+        var order = new TestOrder { Name = "Test" };
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+        db.Orders.Remove(order);
+        await db.SaveChangesAsync();
+        var order2 = await db.Orders.IgnoreQueryFilters().FirstAsync();
+        order2.UpdatedAt.Should().BeNull();
+    }
+    [Fact]
+    public async Task Update_ShouldNotFillCreatedAt()
+    {
+        await using var db = CreateDb();
+        var order = new TestOrder { Name = "Test" };
+        db.Orders.Add(order);
+        await  db.SaveChangesAsync();
+        var createdAt = order.CreatedAt;
+        var order2 = await db.Orders.FirstAsync();
+        order2.Name = "Test2";
+        await db.SaveChangesAsync();
+        order2.CreatedAt.Should().Be(createdAt);
+    }
+
+    [Fact]
+    public void Add_ShouldFillCreatedAt_Sync()
+    {
+        using var db = CreateDb();
+        var order = new TestOrder { Name = "Test" };
+        db.Orders.Add(order);
+        db.SaveChanges();
+        order.CreatedAt.Should().NotBe(default);
+    }
+
+    [Fact]
+    public void Delete_SyncSaveChanges_ShouldSetIsDeleted()
+    {
+        using var db = CreateDb();
+        var order = new TestOrder { Name = "Test" };
+        db.Orders.Add(order);
+        db.SaveChanges();
+        db.Orders.Remove(order);
+        db.SaveChanges();
+        order.IsDeleted.Should().BeTrue();
+        order.DeletedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void Delete_SyncSaveChangesWithAcceptAllChangesOnSuccess_ShouldSetIsDeleted()
+    {
+        using var db = CreateDb();
+        var order = new TestOrder { Name = "Test" };
+        db.Orders.Add(order);
+        db.SaveChanges(acceptAllChangesOnSuccess: true);
+        db.Orders.Remove(order);
+        db.SaveChanges(acceptAllChangesOnSuccess: true);
+        order.IsDeleted.Should().BeTrue();
+        order.DeletedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Delete_AsyncSaveChangesWithAcceptAllChangesOnSuccess_ShouldSetIsDeleted()
+    {
+        await using var db = CreateDb();
+        var order = new TestOrder { Name = "Test" };
+        db.Orders.Add(order);
+        await db.SaveChangesAsync(acceptAllChangesOnSuccess: true);
+        db.Orders.Remove(order);
+        await db.SaveChangesAsync(acceptAllChangesOnSuccess: true);
+        order.IsDeleted.Should().BeTrue();
+        order.DeletedAt.Should().NotBeNull();
     }
 }

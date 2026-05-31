@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using EFCore.SoftAudit.Interfaces;
 
 namespace EFCore.SoftAudit.Tests;

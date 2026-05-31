@@ -1,4 +1,3 @@
-using System.Data;
 using System.Linq.Expressions;
 using System.Security.Claims;
 using EFCore.SoftAudit.Interfaces;
@@ -14,7 +13,7 @@ public abstract class AuditableDbContext(DbContextOptions options, IHttpContextA
         httpContextAccessor?.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     private DateTime GetCurrentDateTime() => DateTime.UtcNow;
 
-    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    private void ApplyAuditRules()
     {
         var currentUser = GetCurrentUser();
         var now = GetCurrentDateTime();
@@ -28,6 +27,7 @@ public abstract class AuditableDbContext(DbContextOptions options, IHttpContextA
                         auditable.CreatedAt = now;
                         auditable.CreatedBy = currentUser;
                     }
+
                     break;
                 case EntityState.Deleted:
                     if (entry.Entity is ISoftDeletable deletable)
@@ -37,20 +37,50 @@ public abstract class AuditableDbContext(DbContextOptions options, IHttpContextA
                         deletable.DeletedAt = now;
                         deletable.DeletedBy = currentUser;
                     }
+
                     break;
                 case EntityState.Modified:
                     if (entry.Entity is IAuditable au)
                     {
+                        if (entry.Entity is ISoftDeletable { IsDeleted: true })
+                        {
+                            break;
+                        }
+
                         au.UpdatedAt = now;
                         au.UpdatedBy = currentUser;
                     }
+
                     break;
             }
-            
         }
-        return await base.SaveChangesAsync(cancellationToken);
+
     }
 
+    public override int SaveChanges()
+    {
+        ApplyAuditRules();
+        return base.SaveChanges();
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ApplyAuditRules();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ApplyAuditRules();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        ApplyAuditRules();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
