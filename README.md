@@ -1,5 +1,7 @@
 # EFCore.SoftAudit
 
+[![CI](https://github.com/maksim-chmel/EFCore.SoftAudit/actions/workflows/ci.yml/badge.svg)](https://github.com/maksim-chmel/EFCore.SoftAudit/actions/workflows/ci.yml)
+
 A lightweight extension for [Entity Framework Core](https://learn.microsoft.com/en-us/ef/core/) that adds **audit fields** and **soft delete** support with minimal setup.
 
 Instead of wiring up `SaveChanges` interceptors and global query filters by hand, inherit from `AuditableDbContext`, implement two marker interfaces on your entities, and register the context via `AddSoftAudit`.
