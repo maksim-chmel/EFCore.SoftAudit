@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
 
         <PackageId>EFCore.SoftAudit</PackageId>
-        <Version>1.0.0</Version>
+        <Version>1.1.0</Version>
         <Authors>Maksym Chmel</Authors>
         <Description>Automatic soft delete and audit fields for EF Core entities</Description>
         <PackageTags>efcore;softdelete;audit;entityframework</PackageTags>
@@ -31,10 +31,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.2.0" />
-      <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
+      <FrameworkReference Include="Microsoft.AspNetCore.App" />
       <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
-      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
     </ItemGroup>
 
 </Project>

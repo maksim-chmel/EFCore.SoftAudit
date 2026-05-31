@@ -11,7 +11,8 @@ Instead of wiring up `SaveChanges` interceptors and global query filters by hand
 - **Automatic audit fields** on create and update (`CreatedAt`, `CreatedBy`, `UpdatedAt`, `UpdatedBy`)
 - **Soft delete** — `Remove()` sets `IsDeleted = true` instead of deleting the row
 - **Global query filter** — soft-deleted entities are excluded from queries by default
-- **Current user tracking** via `IHttpContextAccessor` and `ClaimTypes.NameIdentifier`
+- **Pluggable user and time providers** via `ICurrentUserProvider` and `ITimeProvider`
+- **ASP.NET Core integration** — `HttpCurrentUserProvider` reads `NameIdentifier` from the current HTTP context
 - **UTC timestamps** for all audit and delete fields
 
 ## Requirements
@@ -26,10 +27,14 @@ EFCore.SoftAudit/
 ├── EFCore.SoftAudit.sln
 ├── EFCore.SoftAudit.csproj          # Library
 ├── AuditableDbContext.cs
+├── HttpCurrentUserProvider.cs
+├── SystemTimeProvider.cs
 ├── ServiceCollectionExtensions.cs
 ├── Interfaces/
 │   ├── IAuditable.cs
-│   └── ISoftDeletable.cs
+│   ├── ISoftDeletable.cs
+│   ├── ICurrentUserProvider.cs
+│   └── ITimeProvider.cs
 ├── samples/
 │   └── SampleApi/                   # Demo ASP.NET Core API
 └── tests/
@@ -72,12 +77,14 @@ public class Order : IAuditable, ISoftDeletable
 
 ```csharp
 using EFCore.SoftAudit;
+using EFCore.SoftAudit.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 public class AppDbContext(
     DbContextOptions<AppDbContext> options,
-    IHttpContextAccessor? httpContextAccessor)
-    : AuditableDbContext(options, httpContextAccessor)
+    ICurrentUserProvider? currentUserProvider,
+    ITimeProvider? timeProvider)
+    : AuditableDbContext(options, currentUserProvider, timeProvider)
 {
     public DbSet<Order> Orders => Set<Order>();
 }
@@ -92,7 +99,24 @@ builder.Services.AddSoftAudit<AppDbContext>(options =>
     options.UseSqlite("Data Source=app.db"));
 ```
 
-`AddSoftAudit` registers `IHttpContextAccessor` and your `DbContext` in one call.
+`AddSoftAudit` registers:
+
+- `IHttpContextAccessor`
+- `ICurrentUserProvider` → `HttpCurrentUserProvider`
+- `ITimeProvider` → `SystemTimeProvider`
+- your `DbContext`
+
+### Custom providers (console apps, tests, workers)
+
+Register your own implementations before `AddDbContext`:
+
+```csharp
+services.AddSingleton<ITimeProvider, FakeTimeProvider>();
+services.AddSingleton<ICurrentUserProvider, FakeUserProvider>();
+services.AddDbContext<AppDbContext>(options => ...);
+```
+
+Or pass `null` providers to `AuditableDbContext` — timestamps fall back to `DateTime.UtcNow`, user fields remain `null`.
 
 ## How it works
 
@@ -103,7 +127,7 @@ builder.Services.AddSoftAudit<AppDbContext>(options =>
 | Insert  | `CreatedAt`, `CreatedBy`            |
 | Update  | `UpdatedAt`, `UpdatedBy`            |
 
-`CreatedBy` / `UpdatedBy` are populated from the authenticated user's `NameIdentifier` claim when an HTTP context is available. Outside of a web request (e.g. in tests), these fields remain `null`.
+`CreatedBy` / `UpdatedBy` come from `ICurrentUserProvider.GetCurrentUserId()`. In ASP.NET Core apps this is populated from the `NameIdentifier` claim via `HttpCurrentUserProvider`.
 
 ### Soft delete (`ISoftDeletable`)
 
@@ -120,6 +144,14 @@ To include soft-deleted records explicitly:
 ```csharp
 var allOrders = await db.Orders.IgnoreQueryFilters().ToListAsync();
 ```
+
+Prefer `FirstOrDefaultAsync` over `FindAsync` when loading by id — `FindAsync` may return soft-deleted entities already tracked by the context.
+
+## Limitations
+
+- `ExecuteDelete()` and `ExecuteUpdate()` bypass `SaveChanges` — soft delete does not apply
+- `UpdatedAt` is set on any `Modified` entity, even without business property changes
+- `CreatedAt` is always overwritten on insert
 
 ## Sample API
 
@@ -143,12 +175,7 @@ Swagger UI is available at `https://localhost:7009/swagger` in Development.
 dotnet test
 ```
 
-Tests use an in-memory database and cover:
-
-- `CreatedAt` is set on insert
-- `UpdatedAt` is set on update
-- `Remove()` sets `IsDeleted` and `DeletedAt` instead of deleting
-- Soft-deleted entities are excluded from queries
+Tests use an in-memory database and cover audit fields, soft delete, sync/async `SaveChanges`, and custom user/time providers.
 
 ## Building the solution
 

@@ -1,17 +1,17 @@
 using System.Linq.Expressions;
-using System.Security.Claims;
 using EFCore.SoftAudit.Interfaces;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace EFCore.SoftAudit;
 
-public abstract class AuditableDbContext(DbContextOptions options, IHttpContextAccessor? httpContextAccessor)
+public abstract class AuditableDbContext(
+    DbContextOptions options,
+    ICurrentUserProvider? currentUserProvider = null,
+    ITimeProvider? timeProvider = null)
     : DbContext(options)
 {
-    private string? GetCurrentUser() => 
-        httpContextAccessor?.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    private DateTime GetCurrentDateTime() => DateTime.UtcNow;
+    private string? GetCurrentUser() => currentUserProvider?.GetCurrentUserId();
+    private DateTime GetCurrentDateTime() => timeProvider?.UtcNow ?? DateTime.UtcNow;
 
     private void ApplyAuditRules()
     {

@@ -1,3 +1,4 @@
+using EFCore.SoftAudit.Interfaces;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -5,12 +6,16 @@ namespace EFCore.SoftAudit.Tests;
 
 public class SoftAuditTests
 {
-    private TestDbContext CreateDb()
+    private static readonly DateTime FixedUtc = new(2026, 5, 31, 12, 0, 0, DateTimeKind.Utc);
+
+    private TestDbContext CreateDb(
+        ICurrentUserProvider? userProvider = null,
+        ITimeProvider? timeProvider = null)
     {
         var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()) 
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new TestDbContext(options);
+        return new TestDbContext(options, userProvider, timeProvider);
     }
 
     [Fact]
@@ -134,5 +139,50 @@ public class SoftAuditTests
         await db.SaveChangesAsync(acceptAllChangesOnSuccess: true);
         order.IsDeleted.Should().BeTrue();
         order.DeletedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Add_ShouldFillCreatedBy_WhenUserProviderIsRegistered()
+    {
+        await using var db = CreateDb(new FakeUserProvider("user-123"));
+        var order = new TestOrder { Name = "Test" };
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+        order.CreatedBy.Should().Be("user-123");
+    }
+
+    [Fact]
+    public async Task Update_ShouldFillUpdatedBy_WhenUserProviderIsRegistered()
+    {
+        await using var db = CreateDb(new FakeUserProvider("user-123"));
+        var order = new TestOrder { Name = "Test" };
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+        var tracked = await db.Orders.FirstAsync();
+        tracked.Name = "Updated";
+        await db.SaveChangesAsync();
+        tracked.UpdatedBy.Should().Be("user-123");
+    }
+
+    [Fact]
+    public async Task Delete_ShouldFillDeletedBy_WhenUserProviderIsRegistered()
+    {
+        await using var db = CreateDb(new FakeUserProvider("user-123"));
+        var order = new TestOrder { Name = "Test" };
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+        db.Orders.Remove(order);
+        await db.SaveChangesAsync();
+        order.DeletedBy.Should().Be("user-123");
+    }
+
+    [Fact]
+    public async Task Add_ShouldUseTimeProvider_WhenRegistered()
+    {
+        await using var db = CreateDb(timeProvider: new FakeTimeProvider(FixedUtc));
+        var order = new TestOrder { Name = "Test" };
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+        order.CreatedAt.Should().Be(FixedUtc);
     }
 }
