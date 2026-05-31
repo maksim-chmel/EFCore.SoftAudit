@@ -1,0 +1,18 @@
+using EFCore.SoftAudit.Interfaces;
+
+namespace EFCore.SoftAudit.Tests;
+
+public class TestOrder : ISoftDeletable, IAuditable
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
+    
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? UpdatedBy { get; set; }
+}
