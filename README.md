@@ -43,10 +43,16 @@ EFCore.SoftAudit/
 
 ## Quick start
 
-### 1. Reference the library
+### 1. Install the package
+
+```bash
+dotnet add package EFCore.SoftAudit
+```
+
+Or manually in your `.csproj`:
 
 ```xml
-<ProjectReference Include="path/to/EFCore.SoftAudit.csproj" />
+<PackageReference Include="EFCore.SoftAudit" Version="1.1.1" />
 ```
 
 ### 2. Implement interfaces on your entity
