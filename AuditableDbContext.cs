@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using EFCore.SoftAudit.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace EFCore.SoftAudit;
@@ -10,6 +11,12 @@ public abstract class AuditableDbContext(
     ITimeProvider? timeProvider = null)
     : DbContext(options)
 {
+    [Obsolete("Use the constructor with ICurrentUserProvider and ITimeProvider. Register them via AddSoftAudit<TContext>() in your DI setup.")]
+    protected AuditableDbContext(DbContextOptions options, IHttpContextAccessor? httpContextAccessor)
+        : this(options, httpContextAccessor != null ? new HttpCurrentUserProvider(httpContextAccessor) : null)
+    {
+    }
+
     private string? GetCurrentUser() => currentUserProvider?.GetCurrentUserId();
     private DateTime GetCurrentDateTime() => timeProvider?.UtcNow ?? DateTime.UtcNow;
 

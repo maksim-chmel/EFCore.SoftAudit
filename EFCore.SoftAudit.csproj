@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
 
         <PackageId>EFCore.SoftAudit</PackageId>
-        <Version>1.1.0</Version>
+        <Version>1.1.1</Version>
         <Authors>Maksym Chmel</Authors>
         <Description>Automatic soft delete and audit fields for EF Core entities</Description>
         <PackageTags>efcore;softdelete;audit;entityframework</PackageTags>
