@@ -1,17 +1,12 @@
-using System.ComponentModel.DataAnnotations;
 using EFCore.SoftAudit.Interfaces;
 
 namespace EFCore.SoftAudit.Tests;
 
-public sealed class TestOrder : ISoftDeletable, IAuditable
+public sealed class TestAuditOnlyOrder : IAuditable
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    
-    public bool IsDeleted { get; set; }
-    public DateTime? DeletedAt { get; set; }
-    public string? DeletedBy { get; set; }
-    
+
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public string? CreatedBy { get; set; }

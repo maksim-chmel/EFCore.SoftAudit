@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-05
+
+### Added
+- `AuditableDbContext.Restore<TEntity>(TEntity)` — clears `IsDeleted`, `DeletedAt`, and `DeletedBy` on a soft-deleted entity and marks it as modified so the next `SaveChanges` persists the restore. If the entity also implements `IAuditable`, `UpdatedAt` and `UpdatedBy` are stamped automatically.
+- `AuditableDbContext.RestoreRange<TEntity>(IEnumerable<TEntity>)` — restores a collection of soft-deleted entities in a single call; delegates each item to `Restore()`.
+- `SoftDeleteQueryableExtensions.WithDeleted<T>()` — fluent extension on `IQueryable<T> where T : ISoftDeletable` that includes soft-deleted entities in query results (calls `IgnoreQueryFilters()` internally).
+- `SoftDeleteQueryableExtensions.OnlyDeleted<T>()` — fluent extension that returns only soft-deleted entities (`IgnoreQueryFilters()` + `Where(x => x.IsDeleted)`).
+- `SoftAuditOptions` — configuration class with a `UserClaimType` property (default: `ClaimTypes.NameIdentifier`) for controlling which claim `HttpCurrentUserProvider` reads.
+- `AddSoftAudit<TContext>()` now accepts an optional `Action<SoftAuditOptions>` parameter for configuring the claim type and future options without breaking existing call sites.
+- `HttpCurrentUserProvider` now accepts an optional `string claimType` constructor parameter (default: `ClaimTypes.NameIdentifier`), making it usable standalone without `SoftAuditOptions`.
+
 ## [1.1.1] - 2026-06-01
 
 > **Upgrading from v1.0.0?** Go straight to this version — skip v1.1.0 entirely.
@@ -67,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License.
 - GitHub Actions CI workflow.
 
+[1.2.0]: https://github.com/maksim-chmel/EFCore.SoftAudit/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/maksim-chmel/EFCore.SoftAudit/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/maksim-chmel/EFCore.SoftAudit/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/maksim-chmel/EFCore.SoftAudit/releases/tag/v1.0.0

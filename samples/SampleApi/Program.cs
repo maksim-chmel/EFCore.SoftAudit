@@ -22,9 +22,11 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.MapPost("/orders", async (AppDbContext db, CreateOrderRequest request) =>
 {
-    var order = new Order();
-    order.Name = request.Name;
-    order.Quantity = request.Quantity;
+    var order = new Order
+    {
+        Name = request.Name,
+        Quantity = request.Quantity
+    };
     db.Orders.Add(order);
     await db.SaveChangesAsync();
     return Results.Created($"/orders/{order.Id}",order);

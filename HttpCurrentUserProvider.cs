@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Http;
 
 namespace EFCore.SoftAudit;
 
-public class HttpCurrentUserProvider(IHttpContextAccessor accessor):ICurrentUserProvider
+public class HttpCurrentUserProvider(
+    IHttpContextAccessor accessor,
+    string claimType = ClaimTypes.NameIdentifier) : ICurrentUserProvider
 {
-    public string? GetCurrentUserId() => 
-        accessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    public string? GetCurrentUserId() =>
+        accessor.HttpContext?.User?.FindFirst(claimType)?.Value;
 }

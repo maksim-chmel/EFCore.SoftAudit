@@ -13,9 +13,7 @@ public abstract class AuditableDbContext(
 {
     [Obsolete("Use the constructor with ICurrentUserProvider and ITimeProvider. Register them via AddSoftAudit<TContext>() in your DI setup.")]
     protected AuditableDbContext(DbContextOptions options, IHttpContextAccessor? httpContextAccessor)
-        : this(options, httpContextAccessor != null ? new HttpCurrentUserProvider(httpContextAccessor) : null)
-    {
-    }
+        : this(options, httpContextAccessor != null ? new HttpCurrentUserProvider(httpContextAccessor) : null) {}
 
     private string? GetCurrentUser() => currentUserProvider?.GetCurrentUserId();
     private DateTime GetCurrentDateTime() => timeProvider?.UtcNow ?? DateTime.UtcNow;
@@ -28,40 +26,29 @@ public abstract class AuditableDbContext(
         {
             switch (entry.State)
             {
-                case EntityState.Added:
-                    if (entry.Entity is IAuditable auditable)
-                    {
+                case EntityState.Added when entry.Entity is  IAuditable auditable:
+                    
                         auditable.CreatedAt = now;
                         auditable.CreatedBy = currentUser;
-                    }
-
+                    
                     break;
-                case EntityState.Deleted:
-                    if (entry.Entity is ISoftDeletable deletable)
-                    {
+                case EntityState.Deleted when entry.Entity is ISoftDeletable deletable:
+                    
                         entry.State = EntityState.Modified;
                         deletable.IsDeleted = true;
                         deletable.DeletedAt = now;
                         deletable.DeletedBy = currentUser;
-                    }
-
+                    
                     break;
-                case EntityState.Modified:
-                    if (entry.Entity is IAuditable au)
-                    {
-                        if (entry.Entity is ISoftDeletable { IsDeleted: true })
-                        {
-                            break;
-                        }
-
+                case EntityState.Modified when entry.Entity is IAuditable au 
+                                               && entry.Entity is not ISoftDeletable { IsDeleted: true }:
+                    
                         au.UpdatedAt = now;
                         au.UpdatedBy = currentUser;
-                    }
-
+                        
                     break;
             }
         }
-
     }
 
     public override int SaveChanges()
@@ -87,18 +74,41 @@ public abstract class AuditableDbContext(
         ApplyAuditRules();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
+
+    public void Restore<TEntity>(TEntity entity)
+        where TEntity : class, ISoftDeletable
+    {
+        if (entity is null) throw new ArgumentNullException(nameof(entity));
+        entity.IsDeleted = false;
+        entity.DeletedAt = null;
+        entity.DeletedBy = null;
+        Update(entity);
+    }
+
+    public void RestoreRange<TEntity>(IEnumerable<TEntity> entities)
+        where TEntity : class, ISoftDeletable
+    {
+        if (entities is null) throw new ArgumentNullException(nameof(entities));
+        foreach (var entity in entities)
+            Restore(entity);
+    }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        foreach (var entity in modelBuilder.Model.GetEntityTypes())
+        foreach (var entity in modelBuilder.Model.GetEntityTypes()
+                     .Where(e => typeof(ISoftDeletable).IsAssignableFrom(e.ClrType)))
         {
-            if (!typeof(ISoftDeletable).IsAssignableFrom(entity.ClrType)) continue;
-            var parameter = Expression.Parameter(entity.ClrType, "x");
-            var property = Expression.Property(parameter,nameof(ISoftDeletable.IsDeleted));
-            var condition = Expression.Equal(property, Expression.Constant(false));
-            var lambda = Expression.Lambda(condition, parameter);
-            modelBuilder.Entity(entity.ClrType).HasQueryFilter(lambda);
+            modelBuilder.Entity(entity.ClrType)
+                .HasQueryFilter(BuildIsNotDeletedFilter(entity.ClrType));
         }
+    }
+
+    private static LambdaExpression BuildIsNotDeletedFilter(Type type)
+    {
+        var param = Expression.Parameter(type, "x");
+        var prop = Expression.Property(param, nameof(ISoftDeletable.IsDeleted));
+        var body = Expression.Equal(prop, Expression.Constant(false));
+        return Expression.Lambda(body, param);
     }
 }

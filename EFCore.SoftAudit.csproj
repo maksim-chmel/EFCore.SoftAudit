@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
 
         <PackageId>EFCore.SoftAudit</PackageId>
-        <Version>1.1.1</Version>
+        <Version>1.2.0</Version>
         <Authors>Maksym Chmel</Authors>
         <Description>Automatic soft delete and audit fields for EF Core entities</Description>
         <PackageTags>efcore;softdelete;audit;entityframework</PackageTags>
@@ -16,18 +16,18 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <None Include="README.md" Pack="true" PackagePath="\"/>
+        <None Include="README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Remove="samples/**"/>
-        <None Remove="samples/**"/>
-        <Content Remove="samples/**"/>
-        <EmbeddedResource Remove="samples/**"/>
-        <Compile Remove="tests/**"/>
-        <None Remove="tests/**"/>
-        <Content Remove="tests/**"/>
-        <EmbeddedResource Remove="tests/**"/>
+        <Compile Remove="samples/**" />
+        <None Remove="samples/**" />
+        <Content Remove="samples/**" />
+        <EmbeddedResource Remove="samples/**" />
+        <Compile Remove="tests/**" />
+        <None Remove="tests/**" />
+        <Content Remove="tests/**" />
+        <EmbeddedResource Remove="tests/**" />
     </ItemGroup>
 
     <ItemGroup>

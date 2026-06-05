@@ -11,8 +11,10 @@ Instead of wiring up `SaveChanges` interceptors and global query filters by hand
 - **Automatic audit fields** on create and update (`CreatedAt`, `CreatedBy`, `UpdatedAt`, `UpdatedBy`)
 - **Soft delete** — `Remove()` sets `IsDeleted = true` instead of deleting the row
 - **Global query filter** — soft-deleted entities are excluded from queries by default
+- **Restore** — `Restore()` and `RestoreRange()` undo a soft delete and re-expose the entity to queries
+- **Fluent query extensions** — `WithDeleted()` and `OnlyDeleted()` on any `IQueryable<T> where T : ISoftDeletable`
 - **Pluggable user and time providers** via `ICurrentUserProvider` and `ITimeProvider`
-- **ASP.NET Core integration** — `HttpCurrentUserProvider` reads `NameIdentifier` from the current HTTP context
+- **Configurable claim type** — `HttpCurrentUserProvider` reads any claim you choose (default: `ClaimTypes.NameIdentifier`)
 - **UTC timestamps** for all audit and delete fields
 
 ## Requirements
@@ -30,6 +32,8 @@ EFCore.SoftAudit/
 ├── HttpCurrentUserProvider.cs
 ├── SystemTimeProvider.cs
 ├── ServiceCollectionExtensions.cs
+├── SoftAuditOptions.cs
+├── SoftDeleteQueryableExtensions.cs
 ├── Interfaces/
 │   ├── IAuditable.cs
 │   ├── ISoftDeletable.cs
@@ -52,7 +56,7 @@ dotnet add package EFCore.SoftAudit
 Or manually in your `.csproj`:
 
 ```xml
-<PackageReference Include="EFCore.SoftAudit" Version="1.1.1" />
+<PackageReference Include="EFCore.SoftAudit" Version="1.2.0" />
 ```
 
 ### 2. Implement interfaces on your entity
@@ -79,6 +83,8 @@ public class Order : IAuditable, ISoftDeletable
 }
 ```
 
+You can implement either interface independently — an entity with only `ISoftDeletable` gets soft delete without audit fields; an entity with only `IAuditable` gets audit fields with normal (hard) delete.
+
 ### 3. Create a DbContext
 
 ```csharp
@@ -101,8 +107,14 @@ public class AppDbContext(
 ```csharp
 using EFCore.SoftAudit;
 
+// Default — reads ClaimTypes.NameIdentifier from the current HTTP context
 builder.Services.AddSoftAudit<AppDbContext>(options =>
     options.UseSqlite("Data Source=app.db"));
+
+// Custom claim type (e.g. "sub" for OAuth2 / OpenID Connect)
+builder.Services.AddSoftAudit<AppDbContext>(
+    options => options.UseSqlite("Data Source=app.db"),
+    audit => audit.UserClaimType = "sub");
 ```
 
 `AddSoftAudit` registers:
@@ -133,7 +145,7 @@ Or pass `null` providers to `AuditableDbContext` — timestamps fall back to `Da
 | Insert  | `CreatedAt`, `CreatedBy`            |
 | Update  | `UpdatedAt`, `UpdatedBy`            |
 
-`CreatedBy` / `UpdatedBy` come from `ICurrentUserProvider.GetCurrentUserId()`. In ASP.NET Core apps this is populated from the `NameIdentifier` claim via `HttpCurrentUserProvider`.
+`CreatedBy` / `UpdatedBy` come from `ICurrentUserProvider.GetCurrentUserId()`. In ASP.NET Core apps this is populated from the configured claim via `HttpCurrentUserProvider`.
 
 ### Soft delete (`ISoftDeletable`)
 
@@ -145,11 +157,33 @@ Calling `DbSet.Remove(entity)` does **not** issue a SQL `DELETE`. Instead, the e
 
 A global query filter (`IsDeleted == false`) is applied automatically to every entity that implements `ISoftDeletable`, so deleted rows are hidden from normal queries.
 
-To include soft-deleted records explicitly:
+### Querying soft-deleted entities
+
+Use the fluent extensions from `EFCore.SoftAudit`:
 
 ```csharp
-var allOrders = await db.Orders.IgnoreQueryFilters().ToListAsync();
+// Include deleted alongside active records
+var allOrders = await db.Orders.WithDeleted().ToListAsync();
+
+// Return only deleted records
+var deletedOrders = await db.Orders.OnlyDeleted().ToListAsync();
 ```
+
+> **Note:** `WithDeleted()` calls `IgnoreQueryFilters()` internally, which removes **all** global query filters on the entity type — not just the soft-delete filter. If you have additional filters (e.g. multi-tenancy), they will also be bypassed.
+
+### Restoring soft-deleted entities
+
+```csharp
+// Restore a single entity
+db.Restore(order);
+await db.SaveChangesAsync();
+
+// Restore multiple entities at once
+db.RestoreRange(orders);
+await db.SaveChangesAsync();
+```
+
+After restore, `IsDeleted`, `DeletedAt`, and `DeletedBy` are cleared. If the entity also implements `IAuditable`, `UpdatedAt` and `UpdatedBy` are stamped on the next `SaveChanges`.
 
 Prefer `FirstOrDefaultAsync` over `FindAsync` when loading by id — `FindAsync` may return soft-deleted entities already tracked by the context.
 
@@ -181,7 +215,7 @@ Swagger UI is available at `https://localhost:7009/swagger` in Development.
 dotnet test
 ```
 
-Tests use an in-memory database and cover audit fields, soft delete, sync/async `SaveChanges`, and custom user/time providers.
+Tests use an in-memory database and cover audit fields, soft delete, restore, sync/async `SaveChanges`, query extensions, and custom user/time providers.
 
 ## Building the solution
 

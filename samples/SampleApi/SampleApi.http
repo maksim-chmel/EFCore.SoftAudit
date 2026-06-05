@@ -1,6 +1,23 @@
 @SampleApi_HostAddress = http://localhost:5087
 
-GET {{SampleApi_HostAddress}}/weatherforecast/
+### Create an order
+POST {{SampleApi_HostAddress}}/orders
+Content-Type: application/json
+
+{
+  "name": "Order #1",
+  "quantity": 3
+}
+
+###
+
+### List all active orders (soft-deleted are excluded)
+GET {{SampleApi_HostAddress}}/orders
 Accept: application/json
+
+###
+
+### Soft-delete an order by id
+DELETE {{SampleApi_HostAddress}}/orders/1
 
 ###
